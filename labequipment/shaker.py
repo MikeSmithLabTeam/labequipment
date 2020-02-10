@@ -89,5 +89,13 @@ class Shaker:
         self.power.quit_serial()
         self.speaker.quit_serial()
 
+
+def convert_audio_frequency_to_duty_cycle(freqs):
+    """
+    Converts audio frequencies to duty cycle (out of 1000)
+    """
+    d = (freqs - 1000) / 15
+    return d
+
 if __name__ == "__main__":
     myshaker = Shaker()
