@@ -16,7 +16,8 @@ setuptools.setup(
     url='https://github.com/MikeSmithLabTeam/labvision',
     install_requires=[
         'pyserial',
-        'numpy'
+        'numpy',
+        'picoscope'
     ],
     test_suite='nose.collector',
     tests_require=['nose']
