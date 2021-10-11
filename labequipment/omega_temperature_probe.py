@@ -17,4 +17,4 @@ class Probe(serial.Serial):
     def get_relative_humidity(self):
         self.write(b'H\r')
         txt = self.readline()
-        return float(txt.decode().split(' ')[0][1:])
+        return txt
