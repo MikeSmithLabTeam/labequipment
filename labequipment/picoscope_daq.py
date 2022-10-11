@@ -3,7 +3,7 @@ from ctypes import byref, c_byte, c_int16, c_int32, c_float, sizeof
 from time import sleep
 
 from picosdk.ps2000 import ps2000
-from picosdk.functions import assert_pico2000_ok, adc2mVpl1000, adc2mV
+from picosdk.functions import assert_pico2000_ok, adc2mV, mV2adc
 from picosdk.PicoDeviceEnums import picoEnum
 
 import matplotlib.pyplot as plt
@@ -48,10 +48,13 @@ class PicoScopeDAQ:
         self.channel_a=None
         self.channel_b=None
 
-    def setup_channel(self, channel='A', samples=3965, sample_rate=100000, coupling='DC', voltage_range=2, oversampling=1):
+    def setup_channel(self, channel='A', samples=8000, sample_rate=100000, coupling='DC', voltage_range=2, oversampling=1):
         """
         Channel can be 'A' or 'B' 
-        samples - max depends on device. Model 2204a has 8kS - 3965 samples per channel
+        samples - max depends on device and also on how many channels are used. 
+        
+                Model 2204a has 8kS - 1 channel = 8000 but 2 channels ~ 3965 samples,
+        
         sample_rate - max depends on device. The actual sample rate is calculated and chosen to be the nearest available value
                     You can access this by calling self.
         Device range can be 0.05,0.1,0.2,0.5,1,2,5,10,20V 
@@ -76,17 +79,21 @@ class PicoScopeDAQ:
         else:
             coupling_id=0
         
-        if channel == 'A':   
-            channel_id = 0
-            ps2000._python_set_channel(self.device.handle,channel_id, 1,coupling_id,self._v_range,None)
-            
+        channel_A=0
+        channel_B=1
+
+        if channel == 'A':     
+            ps2000._python_set_channel(self.device.handle,channel_A, 1,coupling_id,self._v_range,None)
+            if self.channel_b == None:
+                ps2000._python_set_channel(self.device.handle,channel_B, 0,coupling_id,self._v_range,None) 
         elif channel == 'B':
-            channel_id = 1
-            ps2000._python_set_channel(self.device.handle,channel_id, 1,coupling_id,self._v_range,None)
+            ps2000._python_set_channel(self.device.handle,channel_B, 1,coupling_id,self._v_range,None)
+            if self.channel_a == None:
+                ps2000._python_set_channel(self.device.handle,channel_A, 0,coupling_id,self._v_range,None) 
         self.timebase, self.interval, self.time_units = get_timebase(self.device, samples, 1E9/sample_rate, oversample=oversampling)
         
 
-    def setup_trigger(self, channel='A', threshold=0, direction=0, delay=0):
+    def setup_trigger(self,channel='A', threshold=0, direction=0,  delay=0):
         """
         This is optional and if not called the data will collect immediately
 
@@ -95,8 +102,16 @@ class PicoScopeDAQ:
         direction - 0=rising, 1=falling
         delay - Some weird definition relating trigger to start of data gathering in %. Read the manual and see if you understand.
         """
+        if channel=='A':
+            channel_id = 0
+        elif channel=='B':
+            channel_id=1
 
-        ps2000.ps2000_set_trigger(self.device.handle, threshold, direction, delay)
+        #Convert threshold
+        millivolts = threshold*1000
+        converted_threshold = mV2adc(millivolts, self._v_range, c_int16(32767))
+
+        ps2000.ps2000_set_trigger(c_int16(self.device.handle), c_int16(channel_id), c_int16(converted_threshold), c_int16(direction), c_int16(delay), c_int16(0))
 
     def start(self, channel='A'):
         "Options are 'A', 'B' or 'BOTH'"
@@ -164,7 +179,7 @@ class PicoScopeDAQ:
 if __name__ == '__main__':
     pico = PicoScopeDAQ()
     pico.setup_channel()
-    #pico.setup_trigger()
+    pico.setup_trigger(threshold=1.5)
     times, channelA, _ = pico.start(channel='A')
     pico.close_scope()
 
