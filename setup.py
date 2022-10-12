@@ -17,7 +17,8 @@ setuptools.setup(
     install_requires=[
         'pyserial',
         'numpy',
-        'picoscope'
+        'picoscope',
+        'picosdk>=1.1'
     ],
     test_suite='nose.collector',
     tests_require=['nose']
