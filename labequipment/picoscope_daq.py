@@ -196,7 +196,7 @@ class PicoScopeDAQ:
 
         collection_time = c_int32()
 
-        if mode == 'Block':
+        if mode == 'block':
             res = ps2000.ps2000_run_block(
                 self.device.handle,
                 self.samples,
