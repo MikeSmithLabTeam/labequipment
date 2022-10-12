@@ -56,10 +56,13 @@ class PicoScopeDAQ:
     PicoScopeDAQ is a simple python interface to collect data from the picoscope 2000 series. 
 
     Installation: To run this code you need to download and install the drivers. 
-    https://www.picotech.com/downloads
+    https://www.picotech.com/downloads. 
     You want 64bit PicoSDK. Once you've installed this then you can 
     pip install this code:
     "pip install git+https://github.com/MikeSmithLabTeam/labequipment"
+
+    Useful additional info for programming is found
+    here: https://www.picotech.com/download/manuals/ps2000pg.en-10.pdf
 
     'block' mode fills the buffer on the device and then stops returning the data.
     This can be used at the highest samplerate supported by the device. You can collect either a single
@@ -157,7 +160,6 @@ class PicoScopeDAQ:
             if self.channel_a == False:
                 ps2000._python_set_channel(self.device.handle,channel_A, 0,coupling_id,self._v_range_b,None) 
         self.timebase, self.interval, self.time_units = get_timebase(self.device, samples, 1E9/sample_rate, oversample=oversampling)
-        
 
     def setup_trigger(self,channel='A', threshold=0, direction=0,  delay=0, wait=0):
         """
@@ -196,7 +198,7 @@ class PicoScopeDAQ:
 
         collection_time = c_int32()
 
-        if mode == 'Block':
+        if mode == 'block':
             res = ps2000.ps2000_run_block(
                 self.device.handle,
                 self.samples,
@@ -218,6 +220,7 @@ class PicoScopeDAQ:
 
             assert self.channel_a or self.channel_b, 'You must setup a channel before running start'
 
+            
             if self.channel_a and self.channel_b:
                 res = ps2000.ps2000_get_times_and_values(
                     self.device.handle,
@@ -257,7 +260,8 @@ class PicoScopeDAQ:
                     self.time_units,  
                     self.samples,
                     )
-                channel_b_v = np.array(adc2mV(buffer_b, self._v_range_b, c_int16(32767)))/1000 # convert from mV to V      
+                channel_b_v = np.array(adc2mV(buffer_b, self._v_range_b, c_int16(32767)))/1000 # convert from mV to V    
+                
 
             times=np.array(times[:])/1E9 # Convert from ns to s
            
@@ -289,8 +293,7 @@ class PicoScopeDAQ:
             
             times = np.linspace(0, (end_time - start_time) * 1e-6, len(data_a_V))
            
-            return times, data_a_V
-    
+
     def close_scope(self):
         ps2000.ps2000_close_unit(self.device.handle)
 
