@@ -14,16 +14,12 @@ import numpy as np
 CALLBACK = C_CALLBACK_FUNCTION_FACTORY(None, POINTER(POINTER(c_int16)), c_int16, c_uint32, c_int16, c_int16, c_uint32)
 
 adc_values_a = []
-adc_values_b = []
 
 def get_overview_buffers_a(buffers, _overflow, _triggered_at, _triggered, _auto_stop, n_values):
     adc_values_a.extend(buffers[0][0:n_values])
 
-def get_overview_buffers_b(buffers, _overflow, _triggered_at, _triggered, _auto_stop, n_values):
-    adc_values_b.extend(buffers[1][0:n_values])
-
 callback_a = CALLBACK(get_overview_buffers_a)
-callback_b = CALLBACK(get_overview_buffers_b)
+
 
 
 
@@ -71,8 +67,8 @@ class PicoScopeDAQ:
     For full specs of each model of oscilloscope see here: https://www.picotech.com/download/datasheets/picoscope-2000-series-data-sheet-en.pdf
 
     'stream' mode continuously collects and transfers data to the 
-    pc's buffer allowing long time data collection but at the expense of speed. Although the code is implemented
-    for dual channel this seems to create issues so its recommended to only collect on a single channel at a time.
+    pc's buffer allowing long time data collection but at the expense of speed. The code is implemented
+    only for use with channel A. I found there were issues trying to get both to run without losing data
 
     Import statement
 
@@ -286,21 +282,14 @@ class PicoScopeDAQ:
                     self.device.handle,
                     callback_a
                     )
-                #ps2000.ps2000_get_streaming_last_values(
-                #    self.device.handle,
-                #    callback_b
-                #    )
-
+                
             end_time = time_ns()
             ps2000.ps2000_stop(self.device.handle)
             data_a_V = np.array(adc2mV(adc_values_a, self._v_range_a, c_int16(32767)))/1000
-            #data_b_V = np.array(adc2mV(adc_values_b, self._v_range_b, c_int16(32767)))/1000
             
             times = np.linspace(0, (end_time - start_time) * 1e-6, len(data_a_V))
-            print(np.size(times))
-            print(np.size(data_a_V))
-            #print(np.size(data_b_V))
-            return times, data_a_V#, data_b_V
+           
+            return times, data_a_V
     
     def close_scope(self):
         ps2000.ps2000_close_unit(self.device.handle)
