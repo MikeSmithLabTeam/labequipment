@@ -3,7 +3,8 @@ import time
 
 ventus_commands = {
     'control_mode':b'CONTROL=POWER\r',
-    'default_power':b'STPOW=50\r',
+    'write':'WRITE',
+    'default_power':b'STPOW=10\rWRITE\r',
     'set_power' : 'POWER=',
     'get_power' : b'POWER?\r',
     'psu_temp':b'PSUTEMP?\r',
@@ -11,7 +12,7 @@ ventus_commands = {
     'status':b'STATUS?\r',
     'store': b'WRITE',
     'serial_settings': {
-        'port':'COM5',
+        'port':'COM4',
         'baudrate':19200,
         'parity':serial.PARITY_NONE,
         'stopbits':serial.STOPBITS_ONE,
@@ -46,14 +47,7 @@ class Laser:
                 stopbits=serial_settings['stopbits']
                 )
         self.com.timeout=5
-        #self.com.write(self.laser['control_mode'])
-        #time.sleep(1)
-        #self.com.write(self.laser['store'])
-        #time.sleep(1)
-        #self.com.write(self.laser['default_power'])
-        #time.sleep(1)
-        #self.com.write(self.laser['store'])
-        #print(self.com.readline())
+        self.set_default_power()
 
     def _write(self, command, value=None):
         if value is None:
@@ -65,9 +59,12 @@ class Laser:
     def _read(self):
         return self.com.readline().decode('utf-8').strip('\r\n')
 
+    def set_default_power(self):
+        self.com.write(self.laser['default_power'])
+
     def set_power(self, power):
         self._write(self.laser['set_power'], power)
-
+        
     def get_status(self):
         status = {}
         self.com.write(self.laser['status'])
@@ -80,11 +77,12 @@ class Laser:
         status['power_mw']= self._read()
         return status
 
+
 if __name__ == '__main__':
     laser = Laser(laser=ventus_commands)
-    laser.set_power(60)
-    #status=laser.get_status()
+    #laser.set_power(60)
+    status=laser.get_status()
 
-    #print(status)
+    print(status)
 
 
