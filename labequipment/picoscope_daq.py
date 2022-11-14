@@ -90,7 +90,7 @@ class PicoScopeDAQ:
         pico = PicoScopeDAQ()
         pico.setup_channel()
         pico.setup_trigger(threshold=1.5)
-        times, channelA = pico.start(channel='A', mode='stream', collect_time=5)
+        times, channelA, _ = pico.start(channel='A', mode='stream', collect_time=5)
         pico.close_scope()
  
     Plot the data:
@@ -292,6 +292,8 @@ class PicoScopeDAQ:
             data_a_V = np.array(adc2mV(adc_values_a, self._v_range_a, c_int16(32767)))/1000
             
             times = np.linspace(0, (end_time - start_time) * 1e-6, len(data_a_V))
+
+            return times, data_a_V, _
            
 
     def close_scope(self):
