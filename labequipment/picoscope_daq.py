@@ -90,7 +90,7 @@ class PicoScopeDAQ:
         pico = PicoScopeDAQ()
         pico.setup_channel()
         pico.setup_trigger(threshold=1.5)
-        times, channelA = pico.start(channel='A', mode='stream', collect_time=5)
+        times, channelA, channelB = pico.start(channel='A', mode='stream', collect_time=5)
         pico.close_scope()
  
     Plot the data:
