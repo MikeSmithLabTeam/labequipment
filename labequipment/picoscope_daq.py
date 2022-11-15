@@ -293,7 +293,7 @@ class PicoScopeDAQ:
             
             times = np.linspace(0, (end_time - start_time) * 1e-6, len(data_a_V))
 
-            return times, data_a_V, _
+            return times, data_a_V, np.zeros(np.shape(data_a_V))
            
 
     def close_scope(self):
