@@ -291,7 +291,7 @@ class PicoScopeDAQ:
             ps2000.ps2000_stop(self.device.handle)
             data_a_V = np.array(adc2mV(adc_values_a, self._v_range_a, c_int16(32767)))/1000
             
-            times = np.linspace(0, (end_time - start_time) * 1e-6, len(data_a_V))
+            times = np.linspace(0, (end_time - start_time) * 1e-9, len(data_a_V))
 
             return times, data_a_V, np.zeros(np.shape(data_a_V))
            
