@@ -45,7 +45,7 @@ def get_timebase(device, samples, wanted_time_interval, oversample=1):
         old_time_interval = time_interval.value
 
         if current_timebase.bit_length() > sizeof(c_int16) * 8:
-            raise Exception('No appropriate timebase was identifiable')
+            raise Exception('No appropriate timebase was identifiable - you might be asking for too many samples')
 
     return current_timebase - 1, old_time_interval, time_units
 
@@ -111,6 +111,9 @@ class PicoScopeDAQ:
         self.channel_a=False
         self.channel_b=False
 
+    def quick_setup_channel(self, param_dict):
+        self.setup_channel(**param_dict)
+
     def setup_channel(self, channel='A', samples=3000, sample_rate=1000, coupling='DC', voltage_range=2, oversampling=1):
         """
         Channel can be 'A' or 'B' 
@@ -123,6 +126,8 @@ class PicoScopeDAQ:
         Device range can be 0.05,0.1,0.2,0.5,1,2,5,10,20V 
         coupling can take values 'DC' or 'AC'
         """
+
+        
 
         self.voltage_unit = 'V'
         if voltage_range < 1:
@@ -160,6 +165,7 @@ class PicoScopeDAQ:
             if self.channel_a == False:
                 ps2000._python_set_channel(self.device.handle,channel_A, 0,coupling_id,self._v_range_b,None) 
         self.timebase, self.interval, self.time_units = get_timebase(self.device, samples, 1E9/sample_rate, oversample=oversampling)
+        print(self.timebase, self.time_interval, self.time_units)
 
     def setup_trigger(self,channel='A', threshold=0, direction=0,  delay=0, wait=0):
         """
