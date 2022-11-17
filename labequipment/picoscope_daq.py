@@ -178,8 +178,7 @@ class PicoScopeDAQ:
             if self.channel_a == False:
                 ps2000._python_set_channel(self.device.handle,channel_A, 0,coupling_id,self._v_range_b,None) 
         self.timebase, self.interval, self.time_units = get_timebase(self.device, samples, 1E9/sample_rate, oversample=oversampling)
-        print(self.timebase, self.time_interval, self.time_units)
-
+   
     def setup_trigger(self,channel='A', threshold=0, direction=0,  delay=0, wait=0, **kwargs):
         """
         This is optional and if not called the data will collect immediately.
