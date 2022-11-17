@@ -82,16 +82,22 @@ class PicoScopeDAQ:
         pico = PicoScopeDAQ()
         pico.setup_channel()
         pico.setup_trigger(threshold=1.5)
-        times, channelA, _ = pico.start(channel='A')
+        times, channelA, _ = pico.start()
         pico.close_scope()
 
     Example Usage in Stream Mode:
 
         pico = PicoScopeDAQ()
-        pico.setup_channel()
+        pico.setup_channel(channel='A', samples=1000)
         pico.setup_trigger(threshold=1.5)
-        times, channelA, _ = pico.start(channel='A', mode='stream', collect_time=5)
+        times, channelA, _ = pico.start(mode='stream', collect_time=5)
         pico.close_scope()
+    
+    Example Usage with quick_setup:
+        param_dict = {'channel':'B', 'samples':5000, 'trigger':None}
+        pico=PicoScopeDAQ()
+        pico.quick_setup(param_dict)
+        times, _, channelB = pico.start()
  
     Plot the data:
 
@@ -111,8 +117,15 @@ class PicoScopeDAQ:
         self.channel_a=False
         self.channel_b=False
 
-    def quick_setup_channel(self, param_dict):
+    def quick_setup(self, param_dict,**kwargs):
+        """
+        quick setup expects a dictionary of key:value pairs corresponding to inputs from setup_channel and setup_trigger. You can supply some or
+        none. If you don't want a trigger supply 'trigger':None as a key:value pair in your dictionary
+        """
         self.setup_channel(**param_dict)
+        if 'trigger' in param_dict.keys():
+            if 'trigger' is not None:
+                self.setup_trigger(**param_dict)
 
     def setup_channel(self, channel='A', samples=3000, sample_rate=1000, coupling='DC', voltage_range=2, oversampling=1):
         """
@@ -122,9 +135,9 @@ class PicoScopeDAQ:
                 Model 2204a has 8kS - 1 channel = 8000 but 2 channels ~ 3965 samples,
         
         sample_rate - max depends on device. The actual sample rate is calculated and chosen to be the nearest available value
-                    You can access this by calling self.
-        Device range can be 0.05,0.1,0.2,0.5,1,2,5,10,20V 
-        coupling can take values 'DC' or 'AC'
+                    You can access this by calling self.Device 
+        range  - can be 0.05,0.1,0.2,0.5,1,2,5,10,20V 
+        coupling  - can take values 'DC' or 'AC'
         """
 
         
@@ -167,7 +180,7 @@ class PicoScopeDAQ:
         self.timebase, self.interval, self.time_units = get_timebase(self.device, samples, 1E9/sample_rate, oversample=oversampling)
         print(self.timebase, self.time_interval, self.time_units)
 
-    def setup_trigger(self,channel='A', threshold=0, direction=0,  delay=0, wait=0):
+    def setup_trigger(self,channel='A', threshold=0, direction=0,  delay=0, wait=0, **kwargs):
         """
         This is optional and if not called the data will collect immediately.
 
