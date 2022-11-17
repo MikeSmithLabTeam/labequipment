@@ -127,7 +127,7 @@ class PicoScopeDAQ:
             if 'trigger' is not None:
                 self.setup_trigger(**param_dict)
 
-    def setup_channel(self, channel='A', samples=3000, sample_rate=1000, coupling='DC', voltage_range=2, oversampling=1):
+    def setup_channel(self, channel='A', samples=3000, sample_rate=1000, coupling='DC', voltage_range=2, oversampling=1, **kwargs):
         """
         Channel can be 'A' or 'B' 
         samples - max depends on device and also on how many channels are used. 
