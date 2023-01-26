@@ -6,7 +6,7 @@ SHAKER_ARDUINO_ID = "/dev/serial/by-id/usb-Arduino__www.arduino.cc__0043_7573530
 SPEAKER_ARDUINO_ID = "/dev/serial/by-id/usb-Arduino_LLC_Arduino_Micro-if00"
 BAUDRATE = 115200
 
-
+'test'
 class Shaker:
 
     def __init__(self):
