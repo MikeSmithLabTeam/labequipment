@@ -1,6 +1,6 @@
 import time
 import serial
-from . import arduino
+import arduino
 
 
 class Stepper():
