@@ -99,7 +99,12 @@ class Arduino:
             string += l.decode("utf-8")
         return string
 
+    def __enter__(self):
+        return self
 
+    def __exit__(self, *args):
+        self.quit_serial()
+        
 def find_port():
     items = os.listdir('/dev/')
     newlist = []
