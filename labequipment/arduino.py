@@ -38,11 +38,6 @@ class Arduino:
             time.sleep(0.5)
             print('port opened')
 
-        if wait:
-            self.wait_for_ready()
-        else:
-            time.sleep(0.5)
-
     def choose_port(self, os='linux'):
         if os == 'linux':
             self.port.port = fd.load_filename(
@@ -52,6 +47,8 @@ class Arduino:
     def wait_for_ready(self):
         """Ensure the arduino has initialised by waiting for the
         'ready' command"""
+        """Removed the call to this function since it left arduino hanging.
+        retaining code in case that was a mistake"""
         serial_length = 0
         while (serial_length < 5):
             serial_length = self.port.inWaiting()
