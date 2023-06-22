@@ -17,9 +17,8 @@ def pk_acceleration(ard):
     
     """
     line = ard.read_serial_line()
-    string = line.decode()
-    string = string.split(',')
-    peak_z = float(string[-1])
+    data_vals=line.split(',')
+    peak_z = float(data_vals[-1])
     return peak_z
 
 def data_peak_z(ard, num_pts):
