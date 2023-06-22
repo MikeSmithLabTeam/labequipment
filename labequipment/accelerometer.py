@@ -1,7 +1,7 @@
 """If you want to upload the operating system code for a RP2040-LCD accelerometer the files are
 on mikesmithlab github page under the accelerometer repo"""
 
-from arduino import Arduino
+from labequipment.arduino import Arduino
 
 
 def pk_acceleration(ard):
