@@ -5,22 +5,39 @@ import os
 
 class Arduino:
 
-    def __init__(self, port=None, rate=9600, wait=True):
-        """Open the selected serial port"""
+    def __init__(self, settings, wait=True):
+        """Open the selected serial port
+        
+        inputs:
+        settings    :   Dict containing port and optionally rate
+                        like:
+                        {PORT   :   "COM1",
+                        BAUDRATE    :  9600}
+        
+        If not supplying a value provide False.
+
+        Use with context manager:
+        
+        Example: 
+
+        with Arduino(settings) as ard:
+            Do stuff.
+                
+        """
         self.port = serial.Serial()
-        if port:
-            self.port.port = port
+        if settings['PORT']:
+            self.port.port = settings['PORT']
         else:
             self.choose_port()
-        self.port.baudrate = rate
+        self.port.baudrate = settings['BAUDRATE']
         self.port.timeout = 0
+
         if self.port.isOpen() == False:
             self.port.open()
             self.port_status = True
             time.sleep(0.5)
             print('port opened')
-        else:
-            print("Select a COMPORT")
+
         if wait:
             self.wait_for_ready()
         else:
