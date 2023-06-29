@@ -48,7 +48,7 @@ class Arduino:
         self.port.close()
         print('port closed')
 
-    def send_serial_line(self, text, terminator='\n\r'):
+    def send_serial_line(self, text):
         """
         Send a string over the serial port making sure it ends in a new
         line .
@@ -56,8 +56,8 @@ class Arduino:
         Input:
             text    the string to be sent to the arduino
         """
-        if text[-2:] != terminator:
-            text += terminator
+        if text[-2:] != "\n":
+            text += "\n"
         text_in_bytes = bytes(text, 'utf8')
         self.port.write(text_in_bytes)
 
