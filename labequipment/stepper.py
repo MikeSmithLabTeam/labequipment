@@ -2,7 +2,6 @@ import time
 import serial
 from . import arduino
 
-
 class Stepper():
     """
     Class to manage the movement of stepper motors
@@ -22,3 +21,6 @@ class Stepper():
         """
         message = 'M' + str(motor_no) + direction + str(steps) + '\n'
         self.ard.send_serial_line(message)
+
+stepper = Stepper(stepper_arduino)
+stepper.move_motor(1, 2000, "-")
