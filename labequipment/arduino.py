@@ -5,7 +5,7 @@ import os
 
 class Arduino:
 
-    def __init__(self, settings, wait=True):
+    def __init__(self, settings, timeout=0):
         """Open the selected serial port
         
         inputs:
@@ -26,27 +26,22 @@ class Arduino:
         """
         self.port = serial.Serial(port=settings['PORT'], baudrate=settings['BAUDRATE'], timeout=timeout)
         time.sleep(1.5) #allowing time for serial port to reset.
-
+        self.flush()
+            
+    def flush(self):
+        '''
+        Clears the buffer.        
+        '''
+        while self.port.in_waiting() > 1:
+            self.port.reset_input_buffer()
+        while self.port.out_waiting() > 1:
+            self.port.reset_output_buffer()
+      
     def choose_port(self, os='linux'):
         if os == 'linux':
             self.port.port = fd.load_filename(
                 'Choose a comport',
                 directory='/dev/')
-
-    def wait_for_ready(self):
-        """Ensure the arduino has initialised by waiting for the
-        'ready' command"""
-        """Removed the call to this function since it left arduino hanging.
-        retaining code in case that was a mistake"""
-        serial_length = 0
-        while (serial_length < 5):
-            serial_length = self.port.inWaiting()
-        print(self.port.readline().decode())
-
-    def quit_serial(self):
-        """ Close the serial port """
-        self.port.close()
-        print('port closed')
 
     def send_serial_line(self, text):
         """
@@ -56,6 +51,7 @@ class Arduino:
         Input:
             text    the string to be sent to the arduino
         """
+        self.flush()
         if text[-2:] != "\n":
             text += "\n"
         text_in_bytes = bytes(text, 'utf8')
@@ -91,16 +87,17 @@ class Arduino:
     def ignorelines(self, n):
         [self.port.readline() for i in range(n)]
 
-    def flush(self):
-        while self.port.inWaiting() > 1:
-            self.port.reset_input_buffer()
-
     def read_all(self):
         string = ''
         while self.port.inWaiting() > 1:
             l = self.port.readline()
             string += l.decode("utf-8")
         return string
+
+    def quit_serial(self):
+        """ Close the serial port """
+        self.port.close()
+        print('port closed')
 
     def __enter__(self):
         return self
