@@ -5,7 +5,7 @@ import os
 
 class Arduino:
 
-    def __init__(self, settings, timeout=0):
+    def __init__(self, settings, timeout=0, write_timeout=None):
         """Open the selected serial port
         
         inputs:
@@ -24,8 +24,8 @@ class Arduino:
             Do stuff.
                 
         """
-        self.port = serial.Serial(port=settings['PORT'], baudrate=settings['BAUDRATE'], timeout=timeout)
-        time.sleep(1.5) #allowing time for serial port to reset.
+        self.port = serial.Serial(port=settings['PORT'], baudrate=settings['BAUDRATE'], timeout=timeout, write_timeout=write_timeout)
+        time.sleep(3) #allowing time for serial port to reset.
         self.flush()
             
     def flush(self):
@@ -55,7 +55,9 @@ class Arduino:
         if text[-2:] != "\n":
             text += "\n"
         text_in_bytes = bytes(text, 'utf8')
-        self.port.write(text_in_bytes)
+        num_bytes = self.port.write(text_in_bytes)
+        if not num_bytes:
+            print('writing to serial failed!')
 
     def read_serial_bytes(self, no_of_bytes):
         """ Read a given no_of_bytes from the serial port"""
@@ -63,7 +65,6 @@ class Arduino:
         while size_of_input_buffer < no_of_bytes:
             size_of_input_buffer = self.port.inWaiting()
         text = self.port.read(no_of_bytes)
-        print(text.decode())
 
     def read_serial_line(self):
         """
