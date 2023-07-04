@@ -21,4 +21,5 @@ class Stepper():
         """
         message = 'M' + str(motor_no) + direction + str(steps) + '\n'
         print(message)
-        self.ard.send_serial_line(message)
+        success = self.ard.send_serial_line(message)
+        return success
