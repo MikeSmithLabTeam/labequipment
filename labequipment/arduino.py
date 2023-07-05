@@ -5,7 +5,7 @@ import os
 
 class Arduino:
 
-    def __init__(self, settings, timeout=0, write_timeout=None):
+    def __init__(self, settings, timeout=0, write_timeout=0):
         """Open the selected serial port
         
         inputs:
