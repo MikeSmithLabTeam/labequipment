@@ -5,45 +5,43 @@ import os
 
 class Arduino:
 
-    def __init__(self, port=None, rate=9600, wait=True):
-        """Open the selected serial port"""
-        self.port = serial.Serial()
-        if port:
-            self.port.port = port
-        else:
-            self.choose_port()
-        self.port.baudrate = rate
-        self.port.timeout = 0
-        if self.port.isOpen() == False:
-            self.port.open()
-            self.port_status = True
-            time.sleep(0.5)
-            print('port opened')
-        else:
-            print("Select a COMPORT")
-        if wait:
-            self.wait_for_ready()
-        else:
-            time.sleep(0.5)
+    def __init__(self, settings, timeout=0, write_timeout=None):
+        """Open the selected serial port
+        
+        inputs:
+        settings    :   Dict containing port and optionally rate
+                        like:
+                        {PORT   :   "COM1",
+                        BAUDRATE    :  9600}
+        
+        If not supplying a value provide False.
 
+        Use with context manager:
+        
+        Example: 
+
+        with Arduino(settings) as ard:
+            Do stuff.
+                
+        """
+        self.port = serial.Serial(port=settings['PORT'], baudrate=settings['BAUDRATE'], timeout=timeout, write_timeout=write_timeout)
+        time.sleep(3) #allowing time for serial port to reset.
+        self.flush()
+            
+    def flush(self):
+        '''
+        Clears the buffer.        
+        '''
+        while self.port.in_waiting > 1:
+            self.port.reset_input_buffer()
+        #while self.port.out_waiting > 1:
+        #    self.port.reset_output_buffer()
+      
     def choose_port(self, os='linux'):
         if os == 'linux':
             self.port.port = fd.load_filename(
                 'Choose a comport',
                 directory='/dev/')
-
-    def wait_for_ready(self):
-        """Ensure the arduino has initialised by waiting for the
-        'ready' command"""
-        serial_length = 0
-        while (serial_length < 5):
-            serial_length = self.port.inWaiting()
-        print(self.port.readline().decode())
-
-    def quit_serial(self):
-        """ Close the serial port """
-        self.port.close()
-        print('port closed')
 
     def send_serial_line(self, text):
         """
@@ -53,10 +51,13 @@ class Arduino:
         Input:
             text    the string to be sent to the arduino
         """
-        if text[-2:] != '\n':
-            text += '\n'
+        self.flush()
+        if text[-2:] != "\n":
+            text += "\n"
         text_in_bytes = bytes(text, 'utf8')
-        self.port.write(text_in_bytes)
+        num_bytes = self.port.write(text_in_bytes)
+        if not num_bytes:
+            print('writing to serial failed!')
 
     def read_serial_bytes(self, no_of_bytes):
         """ Read a given no_of_bytes from the serial port"""
@@ -64,7 +65,6 @@ class Arduino:
         while size_of_input_buffer < no_of_bytes:
             size_of_input_buffer = self.port.inWaiting()
         text = self.port.read(no_of_bytes)
-        print(text.decode())
 
     def read_serial_line(self):
         """
@@ -88,10 +88,6 @@ class Arduino:
     def ignorelines(self, n):
         [self.port.readline() for i in range(n)]
 
-    def flush(self):
-        while self.port.inWaiting() > 1:
-            self.port.reset_input_buffer()
-
     def read_all(self):
         string = ''
         while self.port.inWaiting() > 1:
@@ -99,7 +95,17 @@ class Arduino:
             string += l.decode("utf-8")
         return string
 
+    def quit_serial(self):
+        """ Close the serial port """
+        self.port.close()
+        print('port closed')
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.quit_serial()
+        
 def find_port():
     items = os.listdir('/dev/')
     newlist = []
