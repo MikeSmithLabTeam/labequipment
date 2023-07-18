@@ -10,11 +10,11 @@ from labvision import camera, images
 import arduino, stepper, shaker
 
 
-STEPPER_CONTROL = "/dev/serial/by-id/usb-Arduino__www.arduino.cc__0043_5573532393535190E022-if00"
+STEPPER_CONTROL = 'COM3'#"/dev/serial/by-id/usb-Arduino__www.arduino.cc__0043_5573532393535190E022-if00"
 
 class Balancer:
 
-    def __init__(self, camera, shape='polygon'):# shaker, camera, motors, centre_pt_fn, shape='hexagon'):
+    def __init__(self, camera, boundary_shape='polygon'):# shaker, camera, motors, centre_pt_fn, shape='hexagon'):
         """Balancer class handles levelling a shaker. 
         
         shaker an instance of Shaker() which controls vibration of shaker
@@ -30,11 +30,11 @@ class Balancer:
         #self.shaker = shaker
         #self.motors=motors      
         self.cam = camera
-        self.boundary_shape=shape
+        self.boundary_shape=boundary_shape
         #self.centre_fn = centre_pt_fn
         self.find_boundary()
 
-    def find_boundary(self):
+    def find_actual_centre(self):
         """Manually find the the experimental boundary
         This sets the target value of the centre.
         
@@ -224,9 +224,8 @@ def setup_shaker(init_val=600):
     myshaker.set_duty(init_val)
     return myshaker
 
-def setup_camera():
+def setup_camera(cam_num=1):
     """This is for using a webcam"""
-    cam_num = camera.guess_camera_number()
     cam=camera.Camera(cam_num=cam_num)
     return cam
 
