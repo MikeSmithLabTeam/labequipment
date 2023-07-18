@@ -5,7 +5,7 @@ import os
 
 class Arduino:
 
-    def __init__(self, settings, timeout=0, write_timeout=None):
+    def __init__(self, settings, timeout=0, write_timeout=0):
         """Open the selected serial port
         
         inputs:
@@ -56,8 +56,12 @@ class Arduino:
             text += "\n"
         text_in_bytes = bytes(text, 'utf8')
         num_bytes = self.port.write(text_in_bytes)
-        if not num_bytes:
+        if num_bytes:
+            write_success = True
+        else:
             print('writing to serial failed!')
+            write_success = False
+        return write_success
 
     def read_serial_bytes(self, no_of_bytes):
         """ Read a given no_of_bytes from the serial port"""
