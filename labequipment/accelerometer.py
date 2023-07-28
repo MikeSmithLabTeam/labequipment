@@ -16,6 +16,7 @@ def pk_acceleration(ard):
     peak_z [float] : Peak accleration measured. (Γ)
     
     """
+    ard.flush()
     line = ard.read_serial_line()
     data_vals=line.split(',')
     peak_z = float(data_vals[-1])
