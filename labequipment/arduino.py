@@ -32,10 +32,8 @@ class Arduino:
         '''
         Clears the buffer.        
         '''
-        while self.port.in_waiting > 1:
+        while self.port.in_waiting >= 1:
             self.port.reset_input_buffer()
-        #while self.port.out_waiting > 1:
-        #    self.port.reset_output_buffer()
       
     def choose_port(self, os='linux'):
         if os == 'linux':
