@@ -62,7 +62,7 @@ class Arduino:
             print('writing to serial failed!')
             write_success = False
         return write_success
-
+    
     def read_serial_bytes(self, no_of_bytes):
         """ Read a given no_of_bytes from the serial port"""
         size_of_input_buffer = 0
