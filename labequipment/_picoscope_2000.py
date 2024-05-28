@@ -24,10 +24,6 @@ callback_a = CALLBACK(get_overview_buffers_a)
 
 
 def get_timebase(device, samples, wanted_time_interval, oversample=1):
-    print('Getting timebase')
-    print(device)
-    print(samples)
-    print(wanted_time_interval)
     current_timebase = 1
 
     old_time_interval = None
@@ -88,7 +84,7 @@ class PicoScopeDAQ:
 
     Import statement
 
-        from labequipment.picoscope_daq import PicoScopeDAQ
+        from labequipment.picoscope_2000 import PicoScopeDAQ
     
     Example Usage in Block Mode:
 
@@ -140,7 +136,7 @@ class PicoScopeDAQ:
             if 'trigger' != None:
                 self.setup_trigger(**param_dict)
 
-    def setup_channel(self, channel='A', samples=3000, sample_rate=1000, coupling='DC', voltage_range=2, oversampling=1, **kwargs):
+    def setup_channel(self, channel='A', sample_rate=1000, coupling='DC', voltage_range=2, oversampling=1, **kwargs):
         """
         Channel can be 'A','B' or 'Both'
         samples - max depends on device and also on how many channels are used. 
@@ -167,7 +163,6 @@ class PicoScopeDAQ:
             self._v_range_a=ps2000.PS2000_VOLTAGE_RANGE['PS2000_' + str(voltage_range) + self.voltage_unit]
             self._v_range_b=ps2000.PS2000_VOLTAGE_RANGE['PS2000_' + str(voltage_range) + self.voltage_unit]
 
-        self.samples=samples
         self.sample_rate = sample_rate
         self.oversampling=oversampling
     
@@ -197,39 +192,60 @@ class PicoScopeDAQ:
         else:
             raise ValueError('Channel must be A, B or Both')
 
-        self.timebase, self.interval, self.time_units = get_timebase(self.device, samples, 1E9/sample_rate, oversample=oversampling)
         
-        print("Using sample rate: {} Hz".format(1E9/self.interval))
-   
-    def setup_trigger(self,channel='A', threshold=0, direction=0,  delay=0, wait=0, **kwargs):
+    def setup_trigger(self,channel='A', enable=True, threshold=0, rising=True,  delay=0, max_wait=0, **kwargs):
         """
         This is optional and if not called the data will collect immediately.
 
         channel - specifies channel on which trigger acts
         threshold - value at which trigger is activated
-        direction - 0=rising, 1=falling
-        delay - data startpoint in time relative to trigger. Defined as percentage of total samples
-        wait - Value in ms to wait for the trigger. 0 will wait indefinitely
+        rising - True, falling=False
+        delay - data startpoint in time relative to trigger. Defined as percentage of total samples. 0 means trigger is at the first data value in the block. -50 means it is in the middle of the block. Possible values are -100 to 100.
+        max_wait - Value in s to wait for the trigger. 0 means wait forever
+
+        This is optional and if not called the data will collect immediately.
+
         """
 
+        if not enable:
+            raise ValueError('enable trigger not implemented for this model')
+    
+        self._direction = 0 if rising else 1
+
         if channel=='A':
-            channel_id = 0
+            self.trigger_channel = 0
         elif channel=='B':
-            channel_id=1
+            self.trigger_channel=1
+        
+        self._delay = delay
+        self._max_wait = max_wait
 
-        #Convert threshold
         millivolts = threshold*1000
-        converted_threshold = mV2adc(millivolts, self._v_range_a, c_int16(32767))
+        self._converted_threshold = mV2adc(millivolts, self._v_range_a, c_int16(32767))       
 
-        ps2000.ps2000_set_trigger(c_int16(self.device.handle), c_int16(channel_id), c_int16(converted_threshold), c_int16(direction), c_int16(delay), c_int16(wait))
-
-    def start(self):
+        
+    def start(self, samples=2000):
         """
         Collect data in block mode. 
 
         start will collect data from setup channels.
         block mode fills picoscope buffer once and then returns the data  (Fast, but limited time)
+
+        Signal amplitude in V
+        Time in s
         """
+
+        self.samples = samples
+        self.timebase, self.interval, self.time_units = get_timebase(self.device, samples, 1E9/self.sample_rate, oversample=self.oversampling)
+
+        percent_delay = int(100*self._delay*self.sample_rate/self.samples)
+        if percent_delay < -100 or percent_delay > 100:
+            raise ValueError('Delay must not require value greater than number of samples collected. ie |delay| < samples/sample_rate')
+        
+        ps2000.ps2000_set_trigger(c_int16(self.device.handle), c_int16(self.trigger_channel), c_int16(self._converted_threshold), c_int16(int(self._direction)), c_int16(percent_delay), c_int16(int(self._max_wait*1000)))
+
+        print("Using sample rate: {} Hz".format(1E9/self.interval))
+
         channel_a_v, channel_b_v = None, None
 
         collection_time = c_int32()
@@ -298,9 +314,9 @@ class PicoScopeDAQ:
             channel_b_v = np.array(adc2mV(buffer_b, self._v_range_b, c_int16(32767)))/1000 # convert from mV to V    
             
 
-        times=np.array(times[:])/1E9 # Convert from ns to s
+        time_s=np.array(times[:])/1E9 # Convert from ns to s
         
-        return times, channel_a_v, channel_b_v            
+        return time_s, channel_a_v, channel_b_v            
     
 
     def start_streaming(self, collect_time=5, aggregate=1):
@@ -315,11 +331,15 @@ class PicoScopeDAQ:
         collect_time: time in seconds to collect for in stream mode, has no effect on block mode
         aggregate: number of values averaged together and returned as single point in Stream mode
         """
+
+        samples_in_buffer = 1000
+        _, self.interval, _ = get_timebase(self.device, samples_in_buffer, 1E9/self.sample_rate, oversample=self.oversampling)
+
         ps2000.ps2000_run_streaming_ns(
                     c_int16(self.device.handle),
                     c_uint32(self.interval),
                     2,
-                    c_uint32(self.samples),
+                    c_uint32(samples_in_buffer),
                     c_int16(False),
                     c_uint32(aggregate),
                     c_uint32(100000)

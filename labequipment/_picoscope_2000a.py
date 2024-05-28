@@ -21,13 +21,14 @@ def get_timebase(device, samples, sample_rate, oversample=1):
         timebase = int(timebase)
     else:
         timebase = int(np.ceil(sample_interval*125000000+2))
-        print('Timebase:', timebase)
 
     timeIntervalns = ctypes.c_float()
     returnedMaxSamples = ctypes.c_int32()
     oversample = ctypes.c_int16(0)
+  
+    status =   {}
 
-    status["getTimebase2"] = ps.ps2000aGetTimebase2(device,
+    status['getTimebase2']= ps.ps2000aGetTimebase2(device,
                         timebase,
                         samples,
                         ctypes.byref(timeIntervalns),
@@ -35,8 +36,8 @@ def get_timebase(device, samples, sample_rate, oversample=1):
                         ctypes.byref(returnedMaxSamples),
                         0)
     assert_pico_ok(status["getTimebase2"])
-    
-    return current_timebase - 1, old_time_interval, time_units
+
+    return timebase, timeIntervalns, returnedMaxSamples, oversample
 
 
 
@@ -62,18 +63,17 @@ class PicoScopeDAQ:
     Useful additional info for programming is found
     here: https://www.picotech.com/download/manuals/picoscope-2000-series-a-api-programmers-guide.pdf
 
-    'block' mode fills the buffer on the device and then stops returning the data.
+    'block' mode fills the buffer on the device and then stops, returning the data.
     This can be used at the highest samplerate supported by the device. You can collect either a single
     or dual channel. Single channel uses the whole memory and dual channel splits memory between them.
     For full specs of each model of oscilloscope see here: https://www.picotech.com/download/datasheets/picoscope-2000-series-data-sheet-en.pdf
 
     'stream' mode continuously collects and transfers data to the 
-    pc's buffer allowing long time data collection but at the expense of speed. The code is implemented
-    only for use with channel A. I found there were issues trying to get both to run without losing data
+    pc's buffer allowing long time data collection but at the expense of speed (though not that much). The code is implemented only for use with channel A. I found there were issues trying to get both to run without losing data
 
     Import statement
 
-        from labequipment.picoscope_daq import PicoScopeDAQ
+        from labequipment.picoscope_2000a import PicoScopeDAQ
     
     Example Usage in Block Mode:
 
@@ -114,7 +114,9 @@ class PicoScopeDAQ:
         self._chandle = ctypes.c_int16()
         
         self.status["openunit"] = ps.ps2000aOpenUnit(ctypes.byref(self._chandle), None)
-        #assert(self.status["openunit"]==0, "No Picoscope found, check the model matches the code you are using. Read the docs above!")
+    
+        if self.status["openunit"]!=0:
+            raise ValueError("No Picoscope found, check the model matches the code you are using. Read the docs above!")
         
         self.channel_a=False
         self.channel_b=False
@@ -126,26 +128,23 @@ class PicoScopeDAQ:
         """
         pass
 
-    def setup_channel(self, channel='A', samples=3000, sample_rate=1000, coupling='DC', voltage_range=2, oversampling=1, **kwargs):
+    def setup_channel(self, channel='A', sample_rate=1000, coupling='DC', voltage_range=2, oversampling=1, **kwargs):
         """
-        Channel can be 'A', 'B' or 'Both'
-        samples - max depends on device and also on how many channels are used. 
-        
-                Model 2204a has 8kS - 1 channel = 8000 but 2 channels ~ 3965 samples,
-        
+        Channel can be 'A', 'B' or 'Both'        
         sample_rate - max depends on device. The actual sample rate is calculated and chosen to be the nearest available value more than the one you request. The value used is printed to the terminal. You can also access this by calling self.Device 
         voltage_range  - can be 0.02,0.05,0.1,0.2,0.5,1,2,5,10,20V 
         coupling  - can take values 'DC' or 'AC'
         """
-        
-        if voltage_range in [0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20]:
+        voltage_ranges = [0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20]
+        if voltage_range in voltage_ranges:
             self._v_range = voltage_range
+            #mv2adc in setup_trigger requires the number in the list above for the voltage range. The full list starts at 0.01 but this isn't supported by my card so +1.
+            self._v_range_n = voltage_ranges.index(voltage_range)+1
         else:
             raise ValueError("Voltage range must be 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10 or 20")
         
         _coupling = ps.PS2000A_COUPLING['PS2000A_AC'] if coupling=='AC' else ps.PS2000A_COUPLING['PS2000A_DC']
     
-        self.samples=samples
         self.sample_rate=sample_rate
         
         channel_A = 0
@@ -164,72 +163,59 @@ class PicoScopeDAQ:
             self.status["setChB"] = ps.ps2000aSetChannel(self._chandle, channel_B, enabled, _coupling, self._v_range, 0)
             #assert_pico_ok(self.status["setChB"])
         elif channel=='Both':
-            print('Test')
             self.status["setChA"] = ps.ps2000aSetChannel(self._chandle, channel_A, enabled, _coupling, self._v_range, 0)
             self.status["setChB"] = ps.ps2000aSetChannel(self._chandle, channel_B, enabled, _coupling, self._v_range, 0)
             #assert_pico_ok(self.status["setChA"])
             #assert_pico_ok(self.status["setChB"])
         else:
-            raise ValueError("Channel must be 'A', 'B' or 'Both'")
-        
+            raise ValueError("Channel must be 'A', 'B' or 'Both'")        
    
-    def setup_trigger(self, channel='A', threshold=0, pre_trigger_samples=0, direction=0, max_wait=0, enable=True, **kwargs):
+    def setup_trigger(self, channel='A', enable=True, threshold=0, rising=True, delay=0, max_wait=30,  **kwargs):
         """
         This is optional and if not called the data will collect immediately.
 
         channel - specifies channel on which trigger acts
-        threshold - value at which trigger is activated
-        pre_trigger_samples - number of samples before trigger event.
-        direction - 2=rising, 1=falling
-        delay - delay in seconds from trigger to start of data collection
         enable - enable (true) or disable (False) trigger
-        max_wait - time in ms to wait for trigger before giving up. 0 means wait forever
+        threshold - value (V) at which trigger is activated
+        rising - True of falling false
+        delay - delay in seconds from trigger to start of data collection
+        max_wait - time in s to wait for trigger before giving up. 0 means wait forever
         """
-        
-        self._preTriggerSamples = pre_trigger_samples
-        
+        direction = 2 if rising else 1
+        channel = 0 if 'A' else 1
 
-        converted_threshold = mV2adc(millivolts, self._v_range, c_int16(32767))
-        self.status["trigger"] = ps.ps2000aSetSimpleTrigger(self._chandle, 1, 0, converted_threshold, 2, 0, max_wait)
+        maxADC = ctypes.c_int16()
+        ps.ps2000aMaximumValue(self._chandle, ctypes.byref(maxADC))      
+        
+        converted_threshold = mV2adc(0.5*threshold*1000, self._v_range_n, maxADC)
+        self.status["trigger"] = ps.ps2000aSetSimpleTrigger(self._chandle, enable, channel, converted_threshold, direction, delay, max_wait*1000)
         assert_pico_ok(self.status["trigger"])
 
-    def start(self):
+    def start(self, samples=3000):
         """
         Collect data in block mode. 
 
         start will collect data from setup channels.
         block mode fills picoscope buffer once and then returns the data  (Fast, but limited time)
-        """
-        if not hasattr(self, '_preTriggerSamples'):
-            self._preTriggerSamples = 0
+        
+        kwargs:
+        samples - max depends on device and also on how many channels are used. Only used in block mode.
+        
+                Model 2204a has 8kS - 1 channel = 8000 but 2 channels ~ 3965 samples,
+        
+        returns
+        Signal amplitude in V for both channels
+        Time in s
+        """        
+        self.samples=samples
 
-        # Get timebase information
-        # WARNING: When using this example it may not be possible to access all Timebases as all channels are enabled by default when opening the scope.  
-        # To access these Timebases, set any unused analogue channels to off.
-        # handle = chandle
-        # timebase = 8 = timebase
-        # noSamples = totalSamples
-        # pointer to timeIntervalNanoseconds = ctypes.byref(timeIntervalNs)
-        # pointer to totalSamples = ctypes.byref(returnedMaxSamples)
-        # segment index = 0
+        # Get timebase information        
+        timebase, timeIntervalns, maxSamples, oversample = get_timebase(self._chandle, self.samples, self.sample_rate)
         
-        get_timebase(self._chandle, self.samples, sample_rate)
-        
-        print(self.status["getTimebase2"])
-        assert_pico_ok(self.status["getTimebase2"])
         # Run block capture
-        # handle = chandle
-        # number of pre-trigger samples = preTriggerSamples
-        # number of post-trigger samples = PostTriggerSamples
-        # timebase = 8 = 80 ns = timebase (see Programmer's guide for mre information on timebases)
-        # oversample = 0 = oversample
-        # time indisposed ms = None (not needed in the example)
-        # segment index = 0
-        # lpReady = None (using ps2000aIsReady rather than ps2000aBlockReady)
-        # pParameter = None
         self.status["runBlock"] = ps.ps2000aRunBlock(self._chandle,
-                                                self._preTriggerSamples,
-                                                self.samples - self._preTriggerSamples,
+                                                0,
+                                                self.samples,
                                                 timebase,
                                                 oversample,
                                                 None,
@@ -250,13 +236,6 @@ class PicoScopeDAQ:
         bufferBMin = (ctypes.c_int16 * self.samples)() # used for downsampling which isn't in the scope of this example
 
         # Set data buffer location for data collection from channel A
-        # handle = chandle
-        # source = PS2000A_CHANNEL_A = 0
-        # pointer to buffer max = ctypes.byref(bufferDPort0Max)
-        # pointer to buffer min = ctypes.byref(bufferDPort0Min)
-        # buffer length = self.samples
-        # segment index = 0
-        # ratio mode = PS2000A_RATIO_MODE_NONE = 0
         self.status["setDataBuffersA"] = ps.ps2000aSetDataBuffers(self._chandle,
                                                             0,
                                                             ctypes.byref(bufferAMax),
@@ -268,13 +247,6 @@ class PicoScopeDAQ:
         assert_pico_ok(self.status["setDataBuffersA"])
 
         # Set data buffer location for data collection from channel B
-        # handle = chandle
-        # source = PS2000A_CHANNEL_B = 1
-        # pointer to buffer max = ctypes.byref(bufferBMax)
-        # pointer to buffer min = ctypes.byref(bufferBMin)
-        # buffer length = totalSamples
-        # segment index = 0
-        # ratio mode = PS2000A_RATIO_MODE_NONE = 0
         self.status["setDataBuffersB"] = ps.ps2000aSetDataBuffers(self._chandle,
                                                             1,
                                                             ctypes.byref(bufferBMax),
@@ -289,34 +261,26 @@ class PicoScopeDAQ:
         # create converted type totalSamples
         cTotalSamples = ctypes.c_int32(self.samples)
 
-        # Retried data from scope to buffers assigned above
-        # handle = chandle
-        # start index = 0
-        # pointer to number of samples = ctypes.byref(cTotalSamples)
-        # downsample ratio = 0
-        # downsample ratio mode = PS2000A_RATIO_MODE_NONE
-        # pointer to overflow = ctypes.byref(overflow))
         self.status["getValues"] = ps.ps2000aGetValues(self._chandle, 0, ctypes.byref(cTotalSamples), 0, 0, 0, ctypes.byref(overflow))
         assert_pico_ok(self.status["getValues"])
 
 
         # find maximum ADC count value
-        # handle = chandle
-        # pointer to value = ctypes.byref(maxADC)
         maxADC = ctypes.c_int16()
         self.status["maximumValue"] = ps.ps2000aMaximumValue(self._chandle, ctypes.byref(maxADC))
         assert_pico_ok(self.status["maximumValue"])
 
-        # convert ADC counts data to mV
-        adc2mVChAMax =  adc2mV(bufferAMax, self._v_range, maxADC)
-        adc2mVChBMax =  adc2mV(bufferBMax, self._v_range, maxADC)
+        # convert ADC counts data to V
+        chA_v =  np.array(adc2mV(bufferAMax, self._v_range, maxADC))/1000
+        chB_v =  np.array(adc2mV(bufferBMax, self._v_range, maxADC))/1000
 
         # Create time data
-        time = np.linspace(0, ((cTotalSamples.value)-1) * timeIntervalns.value, cTotalSamples.value)
-        return time, adc2mVChAMax, adc2mVChBMax
+        time_s = np.linspace(0, ((cTotalSamples.value)-1) * timeIntervalns.value/1e9, cTotalSamples.value)
+        
+        return time_s, chA_v, chB_v
             
 
-    def start_streaming(self, collect_time=5, aggregate=1):
+    def start_streaming(self, collect_time=5):
         """
         Collect data in streaming mode
 
@@ -326,7 +290,120 @@ class PicoScopeDAQ:
         collect_time: time in seconds to collect for in stream mode, has no effect on block mode
         aggregate: number of values averaged together and returned as single point in Stream mode
         """
-        pass
+ 
+        enabled = 1
+        disabled = 0
+        analogue_offset = 0.0
+
+        # Set up channel A
+        channel_range = ps.PS2000A_RANGE['PS2000A_2V']
+        self.status["setChA"] = ps.ps2000aSetChannel(self._chandle,
+                                                ps.PS2000A_CHANNEL['PS2000A_CHANNEL_A'],
+                                                enabled,
+                                                ps.PS2000A_COUPLING['PS2000A_DC'],
+                                                channel_range,
+                                                analogue_offset)
+        assert_pico_ok(self.status["setChA"])
+
+        self.samples = int(collect_time * self.sample_rate)
+
+        sizeOfOneBuffer = self.sample_rate #ie 1s of data regardless of sample rate
+        if self.samples < sizeOfOneBuffer:
+            numBuffersToCapture = 1
+            self.samples = int(sizeOfOneBuffer)
+        else:
+            numBuffersToCapture = np.ceil(self.samples / sizeOfOneBuffer)
+            self.samples = int(numBuffersToCapture * sizeOfOneBuffer)
+
+        # Create buffers ready for assigning pointers for data collection
+        bufferAMax = np.zeros(shape=sizeOfOneBuffer, dtype=np.int16)
+
+        memory_segment = 0
+
+        # Set data buffer location for data collection from channel A
+        self.status["setDataBuffersA"] = ps.ps2000aSetDataBuffers(self._chandle,
+                                                            ps.PS2000A_CHANNEL['PS2000A_CHANNEL_A'],
+                                                            bufferAMax.ctypes.data_as(ctypes.POINTER(ctypes.c_int16)),
+                                                            None,
+                                                            sizeOfOneBuffer,
+                                                            memory_segment,
+                                                            ps.PS2000A_RATIO_MODE['PS2000A_RATIO_MODE_NONE'])
+        assert_pico_ok(self.status["setDataBuffersA"])
+
+        # Begin streaming mode:
+        sampleInterval = ctypes.c_int32(int(1e6/self.sample_rate))
+        sampleUnits = ps.PS2000A_TIME_UNITS['PS2000A_US']
+        # We are not triggering:
+        maxPreTriggerSamples = 0
+        autoStopOn = 1
+        # No downsampling:
+        downsampleRatio = 1
+        self.status["runStreaming"] = ps.ps2000aRunStreaming(self._chandle,
+                                                        ctypes.byref(sampleInterval),
+                                                        sampleUnits,
+                                                        maxPreTriggerSamples,
+                                                        self.samples,
+                                                        autoStopOn,
+                                                        downsampleRatio,
+                                                        ps.PS2000A_RATIO_MODE['PS2000A_RATIO_MODE_NONE'],
+                                                        sizeOfOneBuffer)
+        assert_pico_ok(self.status["runStreaming"])
+
+        actualSampleInterval = sampleInterval.value
+        actualSampleIntervalNs = actualSampleInterval * 1000
+
+        # We need a big buffer, not registered with the driver, to keep our complete capture in.
+        bufferCompleteA = np.zeros(shape=self.samples, dtype=np.int16)
+        global nextSample
+        nextSample = 0
+        autoStopOuter = False
+        wasCalledBack = False
+
+
+        def streaming_callback(handle, noOfSamples, startIndex, overflow, triggerAt, triggered, autoStop, param):
+            global nextSample, autoStopOuter, wasCalledBack
+            wasCalledBack = True
+            destEnd = nextSample + noOfSamples
+            sourceEnd = startIndex + noOfSamples
+            bufferCompleteA[nextSample:destEnd] = bufferAMax[startIndex:sourceEnd]
+            nextSample += noOfSamples
+            if autoStop:
+                autoStopOuter = True
+
+
+        # Convert the python function into a C function pointer.
+        cFuncPtr = ps.StreamingReadyType(streaming_callback)
+
+        # Fetch data from the driver in a loop, copying it out of the registered buffers and into our complete one.
+        while nextSample < self.samples and not autoStopOuter:
+            wasCalledBack = False
+            self.status["getStreamingLastestValues"] = ps.ps2000aGetStreamingLatestValues(self._chandle, cFuncPtr, None)
+            if not wasCalledBack:
+                # If we weren't called back by the driver, this means no data is ready. Sleep for a short while before trying
+                # again.
+                time.sleep(0.01)
+
+        print("Done grabbing values.")
+
+        # Find maximum ADC count value
+        # handle = chandle
+        # pointer to value = ctypes.byref(maxADC)
+        maxADC = ctypes.c_int16()
+        self.status["maximumValue"] = ps.ps2000aMaximumValue(self._chandle, ctypes.byref(maxADC))
+        assert_pico_ok(self.status["maximumValue"])
+
+        # Convert ADC counts data to mV
+        chA_v = adc2mV(bufferCompleteA, channel_range, maxADC)
+
+        # Create time data
+        time_s = np.linspace(0, (self.samples-1) * actualSampleIntervalNs/1e9, self.samples)
+
+        # Stop the scope
+        # handle = chandle
+        self.status["stop"] = ps.ps2000aStop(self._chandle)
+        assert_pico_ok(self.status["stop"])
+
+        return time_s, chA_v, np.zeros(np.shape(chA_v))
 
     def _stop(self):
         # Stop the scope
