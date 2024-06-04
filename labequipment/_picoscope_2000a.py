@@ -307,7 +307,8 @@ class PicoScopeDAQ:
 
         self.samples = int(collect_time * self.sample_rate)
 
-        sizeOfOneBuffer = self.sample_rate #ie 1s of data regardless of sample rate
+        sizeOfOneBuffer = self.sample_rate if collect_time > 1 else int(collect_time*self.sample_rate)
+        
         if self.samples < sizeOfOneBuffer:
             numBuffersToCapture = 1
             self.samples = int(sizeOfOneBuffer)
@@ -393,7 +394,7 @@ class PicoScopeDAQ:
         assert_pico_ok(self.status["maximumValue"])
 
         # Convert ADC counts data to mV
-        chA_v = adc2mV(bufferCompleteA, channel_range, maxADC)
+        chA_v = np.array(adc2mV(bufferCompleteA, channel_range, maxADC))/1000
 
         # Create time data
         time_s = np.linspace(0, (self.samples-1) * actualSampleIntervalNs/1e9, self.samples)
