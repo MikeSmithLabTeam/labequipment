@@ -18,7 +18,7 @@ class Stepper():
         direction: either '+' or '-'
         max steps 100000 --> Though it may bottom out etc before that!
         """
-        self.motor_timeout = 2 + (1/steps_per_sec) * abs(steps)
+        self.motor_timeout = 10 + (1/steps_per_sec) * abs(steps)
         message = 'M' + str(motor_no) + direction + str(steps) + '\n'
         self.ard.send_serial_line(message)
         time.sleep(0.1)
