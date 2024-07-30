@@ -1,5 +1,4 @@
 from ._picoscope_2000a import PicoScopeDAQ as PicoScopeDAQ2000a
-from picosdk.ps2000a import ps2000a as ps
 from ._picoscope_2000 import PicoScopeDAQ as PicoScopeDAQ2000
 
 def PicoScopeDAQ():

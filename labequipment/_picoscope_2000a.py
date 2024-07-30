@@ -154,7 +154,6 @@ class PicoScopeDAQ:
 
         if channel=='A':
             # Set up channel A
-            print('20mv', PS2000A_20MV)
             self.status["setChA"] = ps.ps2000aSetChannel(self._chandle, channel_A, enabled, _coupling, self._v_range_n, 0)
             self.status["setChB"] = ps.ps2000aSetChannel(self._chandle, channel_B, not_enabled, _coupling, self._v_range_n, 0)
             #assert_pico_ok(self.status["setChA"])
