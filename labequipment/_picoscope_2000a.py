@@ -88,7 +88,7 @@ class PicoScopeDAQ:
         pico = PicoScopeDAQ()
         pico.setup_channel(channel='A', samples=1000)
         pico.setup_trigger(threshold=1.5)
-        times, channelA, _ = pico.start(mode='stream', collect_time=5)
+        times, channelA, _ = pico.start_streaming(collect_time=5)
         pico.close_scope()
     
     Example Usage with quick_setup:
@@ -154,17 +154,18 @@ class PicoScopeDAQ:
 
         if channel=='A':
             # Set up channel A
-            self.status["setChA"] = ps.ps2000aSetChannel(self._chandle, channel_A, enabled, _coupling, self._v_range, 0)
-            self.status["setChB"] = ps.ps2000aSetChannel(self._chandle, channel_B, not_enabled, _coupling, self._v_range, 0)
+            print('20mv', PS2000A_20MV)
+            self.status["setChA"] = ps.ps2000aSetChannel(self._chandle, channel_A, enabled, _coupling, self._v_range_n, 0)
+            self.status["setChB"] = ps.ps2000aSetChannel(self._chandle, channel_B, not_enabled, _coupling, self._v_range_n, 0)
             #assert_pico_ok(self.status["setChA"])
         # Set up channel B
         elif channel=='B' or channel=='Both':
-            self.status["setChA"] = ps.ps2000aSetChannel(self._chandle, channel_A, not_enabled, _coupling, self._v_range, 0)
-            self.status["setChB"] = ps.ps2000aSetChannel(self._chandle, channel_B, enabled, _coupling, self._v_range, 0)
+            self.status["setChA"] = ps.ps2000aSetChannel(self._chandle, channel_A, not_enabled, _coupling, self._v_range_n, 0)
+            self.status["setChB"] = ps.ps2000aSetChannel(self._chandle, channel_B, enabled, _coupling, self._v_range_n, 0)
             #assert_pico_ok(self.status["setChB"])
         elif channel=='Both':
-            self.status["setChA"] = ps.ps2000aSetChannel(self._chandle, channel_A, enabled, _coupling, self._v_range, 0)
-            self.status["setChB"] = ps.ps2000aSetChannel(self._chandle, channel_B, enabled, _coupling, self._v_range, 0)
+            self.status["setChA"] = ps.ps2000aSetChannel(self._chandle, channel_A, enabled, _coupling, self._v_range_n, 0)
+            self.status["setChB"] = ps.ps2000aSetChannel(self._chandle, channel_B, enabled, _coupling, self._v_range_n, 0)
             #assert_pico_ok(self.status["setChA"])
             #assert_pico_ok(self.status["setChB"])
         else:
@@ -296,7 +297,7 @@ class PicoScopeDAQ:
         analogue_offset = 0.0
 
         # Set up channel A
-        channel_range = ps.PS2000A_RANGE['PS2000A_2V']
+        channel_range = self._v_range_n
         self.status["setChA"] = ps.ps2000aSetChannel(self._chandle,
                                                 ps.PS2000A_CHANNEL['PS2000A_CHANNEL_A'],
                                                 enabled,

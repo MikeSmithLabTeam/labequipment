@@ -99,7 +99,7 @@ class PicoScopeDAQ:
         pico = PicoScopeDAQ()
         pico.setup_channel(channel='A', samples=1000)
         pico.setup_trigger(threshold=1.5)
-        times, channelA, _ = pico.start_stream(collect_time=5)
+        times, channelA, _ = pico.start_streaming(collect_time=5)
         pico.close_scope()
     
     Example Usage with quick_setup:
